@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRIMSON VISION 5</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #09090d;
+  color: white;
+  font-family: Arial, sans-serif;
+  padding: 22px;
+}
+
+header {
+  text-align: center;
+  padding: 25px 10px;
+  border-bottom: 1px solid #8d1727;
+}
+
+h1 {
+  color: #ff304d;
+  letter-spacing: 3px;
+  font-size: 27px;
+}
+
+.subtitle {
+  color: #999;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.panel {
+  background: #15151d;
+  border: 1px solid #343440;
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 20px;
+}
+
+.status {
+  color: #55e69a;
+  font-size: 13px;
+}
+
+button, input {
+  width: 100%;
+  margin-top: 12px;
+}
+
+button {
+  background: #c51e38;
+  color: white;
+  border: 0;
+  padding: 14px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+button:active { background: #8e1428; }
+
+label {
+  display: block;
+  margin-top: 18px;
+  color: #ddd;
+}
+
+input[type="range"] { accent-color: #ff304d; }
+
+canvas {
+  width: 100%;
+  margin-top: 15px;
+  border-radius: 8px;
+  background: #050509;
+}
+
+.small {
+  color: #888;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+footer {
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+  margin: 25px 0;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>CRIMSON VISION 5</h1>
+  <div class="subtitle">VISUAL ENHANCEMENT COMPANION</div>
+</header>
+
+<section class="panel">
+  <h2>System Status</h2>
+  <p class="status">● CV5 ONLINE</p>
+  <p class="small">Platform: iPhone / PlayStation 5 browser</p>
+  <p class="small">Mode: Image Enhancement Demo</p>
+</section>
+
+<section class="panel">
+  <h2>01 — Load Image</h2>
+  <input type="file" id="upload" accept="image/*">
+  <button onclick="demo()">LOAD DEMO IMAGE</button>
+  <canvas id="screen" width="800" height="450"></canvas>
+</section>
+
+<section class="panel">
+  <h2>02 — Visual Controls</h2>
+
+  <label>Sharpness: <span id="sharpValue">1</span></label>
+  <input id="sharp" type="range" min="0" max="3" step=".1" value="1">
+
+  <label>Contrast: <span id="contrastValue">110</span>%</label>
+  <input id="contrast" type="range" min="70" max="160" value="110">
+
+  <label>Color: <span id="colorValue">110</span>%</label>
+  <input id="color" type="range" min="0" max="180" value="110">
+
+  <button onclick="enhance()">APPLY ENHANCEMENT</button>
+  <button onclick="saveImage()">SAVE RESULT</button>
+</section>
+
+<section class="panel">
+  <h2>03 — About CV5</h2>
+  <p class="small">
+    CRIMSON VISION 5 is an experimental visual enhancement
+    companion. It processes uploaded images locally in your browser.
+  </p>
+  <p class="small">
+    This prototype does not modify PS5 games, access live gameplay,
+    or run NVIDIA DLSS. Official console integration would require
+    authorized PlayStation developer access.
+  </p>
+</section>
+
+<footer>CRIMSON VISION 5 • PROTOTYPE 1.0</footer>
+
+<script>
+const canvas = document.getElementById("screen");
+const ctx = canvas.getContext("2d");
+let original = null;
+
+function demo() {
+  const img = ctx.createImageData(800, 450);
+
+  for (let y = 0; y < 450; y++) {
+    for (let x = 0; x < 800; x++) {
+      const i = (y * 800 + x) * 4;
+      const glow = Math.max(0, 100 - Math.hypot(x-400,y-220)*0.25);
+
+      img.data[i] = 12 + glow;
+      img.data[i+1] = 8 + glow*0.08;
+      img.data[i+2] = 20 + glow*0.15;
+      img.data[i+3] = 255;
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+  original = ctx.getImageData(0,0,800,450);
+  enhance();
+}
+
+document.getElementById("upload").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const image = new Image();
+  image.onload = () => {
+    const scale = Math.min(800/image.width,450/image.height);
+    const w = Math.round(image.width*scale);
+    const h = Math.round(image.height*scale);
+
+    ctx.clearRect(0,0,800,450);
+    ctx.drawImage(image,(800-w)/2,(450-h)/2,w,h);
+
+    original = ctx.getImageData(0,0,800,450);
+    enhance();
+    URL.revokeObjectURL(image.src);
+  };
+
+  image.src = URL.createObjectURL(file);
+});
+
+function enhance() {
+  if (!original) return;
+
+  const sharp = Number(document.getElementById("sharp").value);
+  const contrast = Number(document.getElementById("contrast").value);
+  const color = Number(document.getElementById("color").value);
+
+  document.getElementById("sharpValue").textContent = sharp;
+  document.getElementById("contrastValue").textContent = contrast;
+  document.getElementById("colorValue").textContent = color;
+
+  const output = new ImageData(
+    new Uint8ClampedArray(original.data),
+    original.width,
+    original.height
+  );
+
+  const d = output.data;
+  const factor = (259*(contrast+255))/(255*(259-contrast));
+
+  for (let i=0; i<d.length; i+=4) {
+    const avg = (d[i]+d[i+1]+d[i+2])/3;
+
+    for (let c=0; c<3; c++) {
+      let v = factor*(d[i+c]-128)+128;
+      v = avg+(v-avg)*(color/100);
+      d[i+c] = Math.max(0,Math.min(255,v));
+    }
+  }
+
+  ctx.putImageData(output,0,0);
+}
+
+function saveImage() {
+  if (!original) return;
+  const link = document.createElement("a");
+  link.download = "crimson-vision-5.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+["sharp","contrast","color"].forEach(id => {
+  document.getElementById(id).addEventListener("input",enhance);
+});
+
+demo();
+</script>
+
+</body>
+</html>
